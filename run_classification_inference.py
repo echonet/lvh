@@ -12,7 +12,7 @@ import pandas as pd
 
 class ClassificationInferenceEngine:
 
-    def __init__(self, model_path=Path(__file__).parent / 'weights' / 'amyloid_model.pt', device='cuda:0', res=(112, 112)) -> None:
+    def __init__(self, model_path=model_paths['amyloid'], device='cuda:0', res=(112, 112)) -> None:
         self.model_path = model_path
         self.device = device
         self.res = res
