@@ -296,7 +296,7 @@ class PlaxInferenceEngine:
         """
         
         # Prepare
-        n, w_all, h_all = get_clip_dims(paths)
+        (n, w_all, h_all), fnames = get_clip_dims(paths)
         frame_map = pd.DataFrame({
             'frame': np.concatenate([np.arange(ni) for ni in n]),
             'path': np.concatenate([np.array([str(p)] * ni, dtype=np.object) for ni, p in zip(n, paths)]),

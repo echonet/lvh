@@ -5,6 +5,11 @@ from pathlib import Path
 
 class PlaxModel(torch.nn.Module):
 
+    """Model used for prediction of PLAX measurement points.
+    Output channels correspond to heatmaps for the endpoints of
+    measurements of interest.
+    """
+
     def __init__(self, 
             measurements=['LVPW', 'LVID', 'IVS'], 
         ) -> None:
@@ -17,6 +22,9 @@ class PlaxModel(torch.nn.Module):
 
 class ClassificationModel(torch.nn.Module):
 
+    """Binary video classification used to classify heart conditions.
+    """
+
     def __init__(self) -> None:
         super().__init__()
         self.model = torchvision.models.video.r3d_18()
@@ -24,11 +32,3 @@ class ClassificationModel(torch.nn.Module):
     
     def forward(self, x):
         return self.model(x)
-
-
-if __name__ == '__main__':
-    # weights_path = Path.cwd() / 'wandb' / 'run-20210408_112436-6ddw6vl7' / 'files' / 'trained_model.pt'
-    weights_path = Path.cwd() / 'classification' / 'wandb' / 'run-20210616_123249-2y9ls3j9' / 'files' / 'best_auc_model.pt'
-    model = ClassificationModel()
-    model.to('cpu')
-    print(model.load_state_dict(torch.load(weights_path, map_location='cpu')))

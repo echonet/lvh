@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from operator import index
+from operator import index, mod
 from pandas.core.algorithms import isin
 import torch
 from models import ClassificationModel as Model
@@ -8,22 +8,55 @@ from pathlib import Path
 from utils import BoolAction, read_clip, model_paths
 import numpy as np
 import pandas as pd
+from typing import Union
 
 
 class ClassificationInferenceEngine:
 
-    def __init__(self, model_path=model_paths['amyloid'], device='cuda:0', res=(112, 112)) -> None:
+    def __init__(self, model_path: Union[Path, str]=model_paths['amyloid'], device: str='cuda:0', res=(112, 112)) -> None:
+        """Create a ClassificationInferenceEngine instance used for running classification inference.
+
+        Args:
+            model_path (Union[Path, str], optional): Path to saved model weights. Defaults to model_paths['amyloid'].
+            device (str, optional): Device to run model on. Defaults to 'cuda:0'.
+            res (tuple, optional): Image resolution. Defaults to (112, 112).
+        """
+        if isinstance(model_path, str):
+            model_path = Path(model_path)
         self.model_path = model_path
         self.device = device
         self.res = res
         self.model = None
     
     def load_model(self):
+        """Loads model onto device.
+
+        Returns:
+            Results of model.load_state_dict()
+        """
         self.model = Model()
         self.model.to(self.device)
         return self.model.load_state_dict(torch.load(self.model_path, map_location=self.device))
 
-    def run_on_dir(self, in_dir, out_dir, batch_size=4, clip_length=96, verbose=True, threshold=0.5):
+    def run_on_dir(self, 
+                in_dir: Union[Path, str], 
+                out_dir: Union[Path, str], 
+                batch_size: int=4, clip_length: int=96, 
+                verbose: bool=True, threshold: float=0.5
+            ) -> None:
+        """Runs inference on all .avi files in a directory. Saves results to a .csv file.
+
+        Args:
+            in_dir (Union[Path, str]): Directory containing .avi files to run inference on.
+            out_dir (Union[Path, str]): Directory to save .csv file to
+            batch_size (int, optional): Batch size for running inference. Defaults to 4.
+            clip_length (int, optional): Number of frames used to run inference. The first 
+                n frames of the video are used. Any videos shorter than this length are ignored. Defaults to 96.
+            verbose (bool, optional): Prints progress and stats while running. Defaults to True.
+            threshold (float, optional): Threshold used to consider classification positive. Defaults to 0.5.
+        """
+
+        # Prepare directories
         if not isinstance(in_dir, Path):
             in_dir = Path(in_dir)
         if not isinstance(out_dir, Path):
@@ -31,6 +64,11 @@ class ClassificationInferenceEngine:
         if not out_dir.exists():
             out_dir.mkdir()
         
+        # Load model if not loaded already
+        if self.model is None:
+            self.load_model()
+        
+        # Yield batches of videos from directory
         def batch_gen():
             batch = ([], [])
             for p in tqdm(list(in_dir.iterdir())) if verbose else in_dir.iterdir():
@@ -47,6 +85,7 @@ class ClassificationInferenceEngine:
             if len(batch[0]) != 0:
                 yield batch[0], np.array(batch[1])
         
+        # Run inference
         results = {'Filename': [], 'Positive Confidence': []}
         for paths, clips in batch_gen():
             clips = torch.from_numpy(np.moveaxis(np.array(clips), -1, 1)).to(torch.float).to(self.device) / 255.0
@@ -54,6 +93,8 @@ class ClassificationInferenceEngine:
                 preds = torch.sigmoid(self.model(clips)).detach().cpu().numpy()
                 results['Filename'].append([p.name for p in paths])
                 results['Positive Confidence'].append(preds[:, 0])
+        
+        # Process results and save to .csv
         results = pd.DataFrame({k: np.concatenate(v) for k, v in results.items()})
         n_pos = (results['Positive Confidence'] > threshold).sum()
         print(f'{n_pos}/{len(results)} ({100 * n_pos / len(results):.2f}%) predicted positive')
@@ -61,6 +102,10 @@ class ClassificationInferenceEngine:
 
 
 if __name__ == '__main__':
+
+    # CLI used to run inference on a directory and save to
+    # .csv in output directory. Run python run_classification_inference.py --help for
+    # information about parameters.
 
     args = {
         'device': 'cuda:0',
@@ -81,6 +126,6 @@ if __name__ == '__main__':
     args.update({k.replace('-', '_'): v for k, v in vars(parser.parse_args()).items()})
     get_args = lambda l: {k: args[k] for k in l}
 
+    # Run inference
     engine = ClassificationInferenceEngine(**get_args(['device', 'model_path']))
-    print(engine.load_model())
     engine.run_on_dir(**get_args(['in_dir', 'out_dir', 'batch_size', 'clip_length', 'verbose', 'threshold']))
