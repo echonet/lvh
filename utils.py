@@ -40,6 +40,7 @@ def get_clip_dims(paths: Iterable[Union[Path, str]]) -> Tuple[np.ndarray, list]:
         dims (np.ndarray): array of clip dims (frames, width, height). shape=(n, 3)
         filenames (list): list of filenames. len=n
     """
+    
     dims = []
     fnames = []
     for p in paths:
@@ -69,6 +70,7 @@ def read_clip(path, res=None, max_len=None) -> np.ndarray:
     Returns:
         np.ndarray: Numpy array of video. shape=(n, h, w, 3)
     """
+
     cap = cv2.VideoCapture(str(path))
     frames = []
     i = 0
@@ -138,6 +140,7 @@ def get_points_np(preds: np.ndarray, threshold: float=0.3) -> np.ndarray:
     Returns:
         np.ndarray: Centroid locations. shape=(n, c, 2)
     """
+
     preds = np.copy(preds)
     preds[preds < threshold] = 0
     Y, X = np.mgrid[:preds.shape[-3], :preds.shape[-2]]
@@ -155,6 +158,7 @@ def get_angles_np(pts: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: Angles in degrees. Constrained to [-180, 180]. shape=(..., n-1, 2)
     """
+
     a_m = np.arctan2(*np.moveaxis(pts[..., 1:, :] - pts[..., :-1, :], -1, 0))
     a = (a_m[..., 1:] - a_m[..., :-1]) * 180 / np.pi
     a[a > 180] -= 360
@@ -175,6 +179,7 @@ def get_pred_measurements(preds: np.ndarray, scale: float=1) -> Tuple[np.ndarray
         dia_i (np.ndarray): Indices of end diastole. shape=(n_dia,)
         angles (np.ndarray): Angles between measurements in degrees. shape=(n, 2)
     """
+
     pred_pts = get_points_np(preds)
     pred_lens = get_lens_np(pred_pts) * scale
     sys_i, dia_i = get_systole_diastole(pred_lens[:, 1])
@@ -219,6 +224,7 @@ def crop_and_scale(img: np.ndarray, res=(640, 480)) -> np.ndarray:
     Returns:
         np.ndarray: Scaled image. shape=(res[1], res[0], 3)
     """
+
     in_res = (img.shape[1], img.shape[0])
     r_in = in_res[0] / in_res[1]
     r_out = res[0] / res[1]
