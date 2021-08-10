@@ -354,25 +354,26 @@ if __name__ == '__main__':
     # CLI Interface for running inference on a directory
     # and saving predictions to an output directory.
     args = {
-        'device': 'cuda:0',
-        'verbose': True,
-        'batch_size': 100,
-        'model_path': model_paths['plax'],
-        'n_threads': 16,
-        'save_csv': True,
-        'save_avi': True,
-        'save_npy': False
+        'device': ('cuda:0', 'Device to run inference on. Ex: "cuda:0" or "cpu"'),
+        'verbose': (True, 'Print progress and statistics while running. y/n'),
+        'batch_size': (100, 'Number of frames to run inference on at once.'),
+        'model_path': (model_paths['plax'], f'Path to model weights.'),
+        'n_threads': (16, 'Number of threads to use while generating animations and results.'),
+        'save_csv': (True, 'Save frame-by-frame predictions to .csv'),
+        'save_avi': (True, 'Save animation with predictions overlaid on input video to .avi file.'),
+        'save_npy': (False, 'Save raw model predictions in numpy format to .npy file.'),
     }
     parser = ArgumentParser()
     parser.add_argument('in_dir', type=str)
     parser.add_argument('out_dir', type=str)
-    for k, v in args.items():
+    for k, (v, h) in args.items():
+        h += f' default={v}'
         if isinstance(v, bool):
-            parser.add_argument('--' + k.replace('_', '-'), action=BoolAction, default=v)
+            parser.add_argument('--' + k.replace('_', '-'), action=BoolAction, default=v, help=h)
         else:
-            parser.add_argument('--' + k.replace('_', '-'), type=type(v), default=v)
-    args.update({k.replace('-', '_'): v for k, v in vars(parser.parse_args()).items()})
-    get_args = lambda *l: {k: args[k] for k in l}
+            parser.add_argument('--' + k.replace('_', '-'), type=type(v), default=v, help=h)
+    args.update({k.replace('-', '_'): v for k, (v, h) in vars(parser.parse_args()).items()})
+    get_args = lambda *l: {k: args[k][0] for k in l}
 
     # Run inference
     engine = PlaxInferenceEngine(**get_args('device', 'model_path'))

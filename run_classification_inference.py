@@ -108,23 +108,23 @@ if __name__ == '__main__':
     # information about parameters.
 
     args = {
-        'device': 'cuda:0',
-        'batch_size': 8,
-        'clip_length': 96,
-        'verbose': True,
-        'model_path': model_paths['amyloid'],
-        'threshold': 0.5
+        'device': ('cuda:0', 'Device to run inference on. Ex: "cuda:0" or "cpu"'),
+        'batch_size': (8, 'Number of videos to run inference on at once.'),
+        'clip_length': (96, 'Number of frames to run inference on. The first N frames will be used.'),
+        'verbose': (True, 'Print progress and statistics while running. y/n'),
+        'model_path': (model_paths['amyloid'], f'Path to model weights. default={model_paths["amyloid"]}'),
+        'threshold': (0.5, 'Model predictions above this level will be classified as positive.'),
     }
     parser = ArgumentParser()
     parser.add_argument('in_dir', type=str)
     parser.add_argument('out_dir', type=str)
-    for k, v in args.items():
+    for k, (v, h) in args.items():
         if isinstance(v, bool):
-            parser.add_argument('--' + k.replace('_', '-'), action=BoolAction, default=v)
+            parser.add_argument('--' + k.replace('_', '-'), action=BoolAction, default=v, help=h)
         else:
-            parser.add_argument('--' + k.replace('_', '-'), type=type(v), default=v)
+            parser.add_argument('--' + k.replace('_', '-'), type=type(v), default=v, help=h)
     args.update({k.replace('-', '_'): v for k, v in vars(parser.parse_args()).items()})
-    get_args = lambda l: {k: args[k] for k in l}
+    get_args = lambda l: {k: args[k][0] for k in l}
 
     # Run inference
     engine = ClassificationInferenceEngine(**get_args(['device', 'model_path']))
