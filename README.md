@@ -83,6 +83,4 @@ the resulting file structure will look like
 | |-> A4C.csv
 ```
 
-![example animation](example_animation.mp4)
-
 For both PLAX and Classification, there are additional parameters that can be configured in the CLI. These can be found via the ```--help``` option.
