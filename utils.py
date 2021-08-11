@@ -11,7 +11,7 @@ from typing import Union
 # relative paths to weights for various models
 weights_path = Path(__file__).parent / 'weights'
 model_paths = {
-    'plax': weights_path / 'lv_measurement_model.pt',
+    'plax': weights_path / 'hypertrophy_model.pt',
     'amyloid': weights_path / 'amyloid.pt',
     'as': weights_path / 'as_model.pt'
 }
@@ -156,7 +156,7 @@ def get_angles_np(pts: np.ndarray) -> np.ndarray:
         pts (np.ndarray): Input polyline. shape=(..., n, 2)
 
     Returns:
-        np.ndarray: Angles in degrees. Constrained to [-180, 180]. shape=(..., n-1, 2)
+        np.ndarray: Angles in degrees. Constrained to [-180, 180]. shape=(..., n-1)
     """
 
     a_m = np.arctan2(*np.moveaxis(pts[..., 1:, :] - pts[..., :-1, :], -1, 0))

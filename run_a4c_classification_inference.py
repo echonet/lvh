@@ -11,10 +11,10 @@ import pandas as pd
 from typing import Union
 
 
-class ClassificationInferenceEngine:
+class A4cClassificationInferenceEngine:
 
     def __init__(self, model_path: Union[Path, str]=model_paths['amyloid'], device: str='cuda:0', res=(112, 112)) -> None:
-        """Create a ClassificationInferenceEngine instance used for running classification inference.
+        """Create a A4cClassificationInferenceEngine instance used for running classification inference.
 
         Args:
             model_path (Union[Path, str], optional): Path to saved model weights. Defaults to model_paths['amyloid'].
@@ -116,8 +116,8 @@ if __name__ == '__main__':
         'threshold': (0.5, 'Model predictions above this level will be classified as positive.'),
     }
     parser = ArgumentParser()
-    parser.add_argument('in_dir', type=str)
-    parser.add_argument('out_dir', type=str)
+    parser.add_argument('in_dir', type=str, help='Directory containing .avi\' to run inference on.')
+    parser.add_argument('out_dir', type=str, help='Direcotry to output predictions to.')
     for k, (v, h) in args.items():
         if isinstance(v, bool):
             parser.add_argument('--' + k.replace('_', '-'), action=BoolAction, default=v, help=h)
@@ -127,5 +127,5 @@ if __name__ == '__main__':
     get_args = lambda l: {k: args[k][0] for k in l}
 
     # Run inference
-    engine = ClassificationInferenceEngine(**get_args(['device', 'model_path']))
+    engine = A4cClassificationInferenceEngine(**get_args(['device', 'model_path']))
     engine.run_on_dir(**get_args(['in_dir', 'out_dir', 'batch_size', 'clip_length', 'verbose', 'threshold']))

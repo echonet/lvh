@@ -218,7 +218,7 @@ def make_animation_cv2(
     out.release()
 
 
-class PlaxInferenceEngine:
+class PlaxHypertrophyInferenceEngine:
 
     def __init__(
                 self, model_path: Union[Path, str]=model_paths['plax'],
@@ -364,8 +364,8 @@ if __name__ == '__main__':
         'save_npy': (False, 'Save raw model predictions in numpy format to .npy file.'),
     }
     parser = ArgumentParser()
-    parser.add_argument('in_dir', type=str)
-    parser.add_argument('out_dir', type=str)
+    parser.add_argument('in_dir', type=str, help='Directory containing .avi\' to run inference on.')
+    parser.add_argument('out_dir', type=str, help='Direcotry to output predictions to.')
     for k, (v, h) in args.items():
         h += f' default={v}'
         if isinstance(v, bool):
@@ -376,5 +376,5 @@ if __name__ == '__main__':
     get_args = lambda *l: {k: args[k][0] for k in l}
 
     # Run inference
-    engine = PlaxInferenceEngine(**get_args('device', 'model_path'))
+    engine = PlaxHypertrophyInferenceEngine(**get_args('device', 'model_path'))
     engine.run_on_dir(**get_args('in_dir', 'out_dir', 'batch_size', 'n_threads', 'verbose', 'save_csv', 'save_avi', 'save_npy'))

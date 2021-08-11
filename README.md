@@ -10,9 +10,9 @@ Trained on 28,201 echocardiogram videos, our model accurately measures intravent
 
 ## Inference
 
-### PLAX
+### PLAX Hypertrophy Evaluation
 
-Running inference for the PLAX measurement model is possible with ```run_plax_inference.py``` using a simple CLI. The script searches a directory for .avi videos, runs inference on them and outputs results to an output directory. For example, if we have the file structure:
+Running inference for the PLAX hypertrophy model is possible with ```run_plax_inference.py``` using a simple CLI. The script searches a directory for .avi videos, runs inference on them and outputs results to an output directory. For example, if we have the file structure:
 
 ```
 PLAX
@@ -53,9 +53,9 @@ For each .avi found in the input directory, a folder with the same name as the f
 | | |-> echo3_plax.png
 ```
 
-### Classification
+### A4C Disease Classification
 
-Running binary video classification is done in a similar fashion. ```run_classification_inference.py``` also expects an input directory and an output directory. The script will search the input directory for .avi videos, run inference on them, and output results to the output directory. Unlike the PLAX script, all inferences for the entire input directory will be saved in a single .csv file. For example if the original file structure is
+Running binary video classification on A4C view echos is done in a similar fashion. ```run_classification_inference.py``` also expects an input directory and an output directory. The script will search the input directory for .avi videos, run inference on them, and output results to the output directory. Unlike the PLAX script, all inferences for the entire input directory will be saved in a single .csv file. For example if the original file structure is
 
 ```
 ./
