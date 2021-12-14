@@ -1,9 +1,6 @@
 # EchoNet-LVH
 
-EchoNet-LVH is a deep learning workflow that automatically quantifies ventricular hypertrophy with precision equal to human experts and predicts etiology of LVH.  
-
 ![Figure1](Figure1.png)
-
 
 ## Importance
 Early detection and characterization of increased left ventricular (LV) wall thickness can significantly impact patient care but is limited by under-recognition of hypertrophy, measurement error and variability, and difficulty differentiating etiologies of increased wall thickness, such has hypertrophy cardiomyopathy and cardiac amyloidosis. 
