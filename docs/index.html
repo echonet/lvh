@@ -88,18 +88,18 @@
   <div id="intro" class="container" role="introduction" tabindex="0">
     <h2>Introduction</h2>
     <p>Echocardiography, or cardiac ultrasound, is the most widely used and readily available imaging modality to assess cardiac function and structure. Combining portable instrumentation, rapid image acquisition, high temporal resolution, and without the risks of ionizing radiation, echocardiography is one of the most frequently utilized imaging studies in the United States and serves as the backbone of cardiovascular imaging. For diseases ranging from heart failure to valvular heart diseases, echocardiography is both necessary and sufﬁcient to diagnose many cardiovascular diseases. In addition to our deep learning model, we introduce a new large video dataset of echocardiograms (parasternal long axis view) for computer vision research. 	The EchoNet-LVH dataset includes 12,000 labeled echocardiogram videos and human expert annotations (measurements, tracings, and calculations) to provide a baseline to study cardiac chamber size and wall thickness.</p><br>
-    <video class="center" width="320" height="320" autoplay loop muted><source src="media/0X1B0D341BDF4D3E5F.mp4" type="video/mp4"></video>
+    <video class="center" width="640" height="640" autoplay loop muted><source src="media/0X1B0D341BDF4D3E5F.mp4" type="video/mp4"></video>
     <br>
     <p><h2 id="motivation">Motivation</h2>
     <p>Left ventricular hypertrophy (LVH) and increased heart wall thickness results from chronic remodeling caused by a broad range of systemic and cardiovascular disease including high blood pressure, aortic stenosis, hypertrophic cardiomyopathy, and cardiac amyloidosis. Early detection and characterization of LVH can significantly impact patient care but is limited by under-recognition, measurement error and variability, and difficulty differentiating etiologies of LVH. To overcome this challenge, we present EchoNet-LVH - a deep learning workflow that automatically quantifies ventricular hypertrophy with precision equal to human experts and predicts etiology of LVH.
-    <h2 id="dataset">Dataset</h2><p><img class="center" loading="lazy" width="640" src="media/Schematic.webp">
+    <h2 id="dataset">Dataset</h2><p><img class="center" loading="lazy" width="800" src="media/Schematic.webp">
     <p><b>Echocardiogram Videos:</b> A standard echocardiogram study consists of a series of videos and images visualizing the heart from different angles, positions, and image acquisition techniques. The EchoNet-LVH dataset contains 12,000 parasternal-long-axis echocardiography videos from individuals who underwent imaging as part of routine clinical care at Stanford Medicine. Each video was cropped and masked to remove text and information outside of the scanning sector. The resulting videos are at native resolution.</p><br>
-    <p><img class="center" loading="lazy" width="500" src="media/MetaDataVariables.webp">
+    <p><img class="center" loading="lazy" width="800" src="media/MetaDataVariables.webp">
     <p><b>Measurements:</b> In addition to the video itself, each study is linked to clinical measurements and calculations obtained by a registered sonographer and veriﬁed by a level 3 echocardiographer in the standard clinical workﬂow. During both systole and diastole, clinicians measure intraventricular septum (IVS) thickness, left ventricular internal dimension (LVID), and left ventricular posterior wall (LVPW) thickness in the parasternal long axis view.</p><br>
     <p>Further description of the dataset is available in our <a href="https://arxiv.org/abs/2106.12511">preprint</a>.</p>
     <br>
     <h2 id="code">Code</h2>
-	<video class="center" width="320" height="320" autoplay loop muted><source src="media/example62.mp4" type="video/mp4"></video>
+	<video class="center" width="640" height="640" autoplay loop muted><source src="media/example62.mp4" type="video/mp4"></video>
     <p>Our code is available <a href="https://github.com/echonet/lvh">here</a>.</p>
     <br>
     <h2 id="access">Accessing Dataset</h2>
