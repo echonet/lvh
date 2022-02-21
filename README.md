@@ -6,7 +6,7 @@
 
 We show examples of EchoNet-LVH's evaluation of left ventricular dimensions.
 
-![Example1]<img src="Example1Optimized" width="25%"> | ![Example2]<img src="Example2Optimized" width="25%"> | ![Example3]<img src="Example3Optimized" width="25%"> 
+![Example1]<img src="Example1Optimized" width="25%"/> | ![Example2]<img src="Example2Optimized" width="25%"/> | ![Example3]<img src="Example3Optimized" width="25%"/> 
 | ![Example1](Example1Optimized.gif) | ![Example2](Example2Optimized.gif) | ![Example3](Example3Optimized.gif) |
 
 ## Importance
