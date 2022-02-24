@@ -2,11 +2,11 @@
 
 ![Figure1](Figure1.png)
 
-## Examples
+## Example
 
-We show examples of EchoNet-LVH's evaluation of left ventricular dimensions.
+Example of EchoNet-LVH's inference of left ventricular dimensions.
 
-| ![Example1](Example1_r.gif) | ![Example2](Example2_r.gif)
+![Example1](Example1_r.gif)
 
 ## Importance
 Early detection and characterization of increased left ventricular (LV) wall thickness can significantly impact patient care but is limited by under-recognition of hypertrophy, measurement error and variability, and difficulty differentiating etiologies of increased wall thickness, such has hypertrophy cardiomyopathy and cardiac amyloidosis. 
