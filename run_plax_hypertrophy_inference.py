@@ -331,7 +331,10 @@ class PlaxHypertrophyInferenceEngine:
             for p in batch_paths:
                 clips[p][1][batch_map[batch_map['path'] == p]['frame']] = preds[batch_map['path'] == p]
     
-
+        # Yield remaining clips
+        for k, v in clips.items():
+            yield Path(k), v[0], v[1]
+                
     def run_model_np(self, x: np.ndarray) -> np.ndarray:
         """Run inference on a numpy array video.
 
