@@ -4,10 +4,9 @@ import argparse
 from operator import mod
 from typing import Union
 from argparse import ArgumentParser
-import cv2
+import cv2 
 import numpy as np
 import pandas as pd
-import cv2
 from matplotlib import pyplot as plt
 from matplotlib import animation
 import torch
@@ -20,11 +19,15 @@ from threading import Thread, Lock
 
 from utils import BoolAction, get_clip_dims, read_clip, get_systole_diastole, get_lens_np, get_points_np
 from utils import get_angles_np, get_pred_measurements, overlay_preds, model_paths
+from utils import change_doppler_color,make_view_input,load_view_classifier,get_views,get_dicoms
 from models import PlaxModel as Model
 
+import pydicom 
+from pathlib import Path
+import torchvision
+import os
 
 plt_thread_lock = Lock()
-
 
 def save_preds(
             p: Union[str, Path], fn: str, clip: np.ndarray, preds: np.ndarray, 
@@ -50,9 +53,9 @@ def save_preds(
     # Create folder
     folder_name = fn.replace('.avi', '').replace('.', '_')
     inf_path = p / folder_name
+    # print('Saving results at:\t',inf_path)
     if not inf_path.exists():
         inf_path.mkdir()
-    
     # Save raw predictions as .npy
     if npy:
         np.save(inf_path / (folder_name + '.npy'), preds)
@@ -60,7 +63,7 @@ def save_preds(
 
     # Save predicted points to .csv
     if csv:
-        phase = np.array([''] * len(pred_pts), dtype=np.object)
+        phase = np.array([''] * len(pred_pts), dtype=object)
         phase[sys_i] = 'ES'
         phase[dia_i] = 'ED'
         df = pd.DataFrame({
@@ -87,8 +90,8 @@ def save_preds(
     # Save an animation of the predictions overlayed on the cropped video as .avi
     if avi:
         with plt_thread_lock:
-            # make_animation(inf_path / (folder_name + '.avi'), clip, preds, pred_pts, pred_lens, sys_i, dia_i)
-            make_animation_cv2(inf_path / (folder_name + '.avi'), clip, preds, pred_pts)
+            make_animation(inf_path / (folder_name + '.avi'), clip, preds, pred_pts, pred_lens, sys_i, dia_i)
+        make_animation_cv2(inf_path / (folder_name + '.avi'), clip, preds, pred_pts)
     
     # Save a plot of measurements vs time for whole clip
     if plot:
@@ -221,7 +224,8 @@ def make_animation_cv2(
 class PlaxHypertrophyInferenceEngine:
 
     def __init__(
-                self, model_path: Union[Path, str]=model_paths['plax'],
+                self, 
+                model_path: Union[Path, str]=model_paths['plax'],
                 device='cuda:0', 
             ) -> None:
         if isinstance(model_path, str):
@@ -241,9 +245,10 @@ class PlaxHypertrophyInferenceEngine:
         return self.model.load_state_dict(torch.load(self.model_path, map_location=self.device))
     
     def run_on_dir(
-                self, in_dir: Union[Path, str], out_dir: Union[Path, str], batch_size=100, 
-                h=480, w=640, channels_in=3, channels_out=4, 
-                n_threads=16, verbose=True, save_csv=True, save_avi=True, save_npy=False, save_plot=True
+                self, in_dir: Union[Path, str], out_dir: Union[Path, str], batch_size=1, 
+                h=480, w=640,
+                channels_in=3, channels_out=4, 
+                n_threads=0, verbose=True, save_csv=True, save_avi=True, save_npy=False, save_plot=True
             ) -> None:
         """Run inference on PLAX videos in a directory
 
@@ -262,19 +267,19 @@ class PlaxHypertrophyInferenceEngine:
             save_npy (bool, optional): Save raw predictions in numpy form. Defaults to False.
         """
 
-        # Prepare
         in_dir = Path(in_dir) if isinstance(in_dir, str) else in_dir
         out_dir = Path(out_dir) if isinstance(out_dir, str) else out_dir
         p = lambda s: print(s) if verbose else None
         if not out_dir.exists():
             out_dir.mkdir()
-
-        # Start inference threads. Run inference, save results to out_dir
         p('Running inference')
         threads = []
-        for fn, clip, preds in engine._run_on_clips(list(in_dir.iterdir()), verbose=verbose, 
-                                h=h, w=w, channels_in=channels_in, channels_out=channels_out,
+        avis = [l for l in list(in_dir.iterdir()) if l.suffix=='.avi']
+        print('Inferencing on avis:\n',len(avis),'\n')
+        for fn, clip, preds in engine._run_on_clips(avis, 
+                                verbose=verbose, channels_in=channels_in, channels_out=channels_out,
                                 batch_size=batch_size):
+            save_preds(out_dir,fn.name,clip,preds,save_csv,save_avi,save_plot,save_npy)
             if len(threads) > n_threads:
                 t = threads.pop(0)
                 t.join()
@@ -289,7 +294,10 @@ class PlaxHypertrophyInferenceEngine:
         p('Finished')
 
     def _run_on_clips(
-                self, paths, batch_size=100, h=480, w=640, channels_in=3, channels_out=4, verbose=True
+                self, paths,
+                batch_size=1, 
+                h=480, w=640, 
+                channels_in=3, channels_out=4, verbose=True
             ) -> None:
         """Internally used to iterate through a list of paths and run inferece. Batches may share frames from
         several clips. Yields clips, predictions, and filenames when inference is finished. Used for performance.
@@ -299,38 +307,39 @@ class PlaxHypertrophyInferenceEngine:
         (n, w_all, h_all), fnames = get_clip_dims(paths)
         frame_map = pd.DataFrame({
             'frame': np.concatenate([np.arange(ni) for ni in n]),
-            'path': np.concatenate([np.array([str(p)] * ni, dtype=np.object) for ni, p in zip(n, paths)]),
+            'path': np.concatenate([np.array([str(p)] * ni, dtype=object) for ni, p in zip(n, paths)]),
         })
-
+        print('Num unique paths:\t',frame_map.path.nunique())
         # Run
-        clips = dict()  # clips currently being processed
-        batch = np.zeros((batch_size, h, w, channels_in))
+        clips = dict()  
+        batch = np.zeros((batch_size,h,w,channels_in))
         for si in tqdm(range(0, len(frame_map), batch_size)) if verbose else range(0, len(frame_map), batch_size):
-            
-            # Get batch files
             batch_map = frame_map.iloc[si:min(si + batch_size, len(frame_map))]
             batch_paths = batch_map['path'].unique()
             l = list(clips.items())
-            
-            # Check if inference has finished for all current clips
-            # and yield results for any finished.
             for k, v in l:
                 if k not in batch_paths:
+                    ### Yield for saving
                     clips.pop(k)
                     yield Path(k), v[0], v[1]
 
             # Generate batch
             for p in batch_paths:
                 if p not in clips:
-                    c = read_clip(p, res=(w, h))
-                    clips[p] = (c, np.zeros((len(c), h, w, channels_out), dtype=np.float))
+                    c = read_clip(p)
+                    clips[p] = (c, np.zeros((len(c),h,w, channels_out), dtype=float))
                 batch[:len(batch_map)][batch_map['path'] == p] = clips[p][0][batch_map[batch_map['path'] == p]['frame']]
-            
-            # Run inference and set results
+            ### Run inference 
             preds = self.run_model_np(batch[:len(batch_map)])
+            ### Set results to clips
             for p in batch_paths:
                 clips[p][1][batch_map[batch_map['path'] == p]['frame']] = preds[batch_map['path'] == p]
-    
+            if si + batch_size >len(frame_map):
+                if len(batch_paths)>0: 
+                        l = list(clips.items())
+                        for k,v in l:
+                            clips.pop(k)
+                            yield Path(k),v[0],v[1]
 
     def run_model_np(self, x: np.ndarray) -> np.ndarray:
         """Run inference on a numpy array video.
@@ -358,7 +367,7 @@ if __name__ == '__main__':
         'verbose': (True, 'Print progress and statistics while running. y/n'),
         'batch_size': (100, 'Number of frames to run inference on at once.'),
         'model_path': (model_paths['plax'], f'Path to model weights.'),
-        'n_threads': (16, 'Number of threads to use while generating animations and results.'),
+        'n_threads': (0, 'Number of threads to use while generating animations and results.'),
         'save_csv': (True, 'Save frame-by-frame predictions to .csv'),
         'save_avi': (True, 'Save animation with predictions overlaid on input video to .avi file.'),
         'save_npy': (False, 'Save raw model predictions in numpy format to .npy file.'),
@@ -366,13 +375,16 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('in_dir', type=str, help='Directory containing .avi\' to run inference on.')
     parser.add_argument('out_dir', type=str, help='Direcotry to output predictions to.')
+    
+    ### Wall thickness inference
     for k, (v, h) in args.items():
         h += f' default={v}'
         if isinstance(v, bool):
             parser.add_argument('--' + k.replace('_', '-'), action=BoolAction, default=v, help=h)
         else:
             parser.add_argument('--' + k.replace('_', '-'), type=type(v), default=v, help=h)
-    args.update({k.replace('-', '_'): v for k, (v, h) in vars(parser.parse_args()).items()})
+    print(parser.parse_args())
+    args.update({k.replace('-', '_'):[v,''] for k,v in vars(parser.parse_args()).items()})
     get_args = lambda *l: {k: args[k][0] for k in l}
 
     # Run inference

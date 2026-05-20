@@ -2,11 +2,16 @@ from typing import Iterable, Tuple
 import torch
 import numpy as np
 from scipy.signal import find_peaks
-import cv2
+import cv2 ### 4.5.3.56
 from pathlib import Path
 import argparse
 from typing import Union
-
+import torchvision
+import tqdm
+import pandas as pd 
+import pydicom
+import shutil
+import os
 
 # relative paths to weights for various models
 weights_path = Path(__file__).parent / 'weights'
@@ -27,11 +32,10 @@ class BoolAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         b = values.lower()[0] in ['t', 'y', '1']
         setattr(namespace, self.dest, b)
-        print(parser)
 
 
 def get_clip_dims(paths: Iterable[Union[Path, str]]) -> Tuple[np.ndarray, list]:
-    """Gets the dimentions of all the videos in a list of paths.
+    """Gets the dimensions of all the videos in a list of paths.
 
     Args:
         paths (Iterable[Union[Path, str]]): List of paths to iterrate through
@@ -56,7 +60,7 @@ def get_clip_dims(paths: Iterable[Union[Path, str]]) -> Tuple[np.ndarray, list]:
         fnames.append(p.name)
     return np.array(dims).T, fnames
 
-def read_clip(path, res=None, max_len=None) -> np.ndarray:
+def read_clip(path, res=(640,480), max_len=None) -> np.ndarray:
     """Reads a clip and returns it as a numpy array
 
     Args:
@@ -70,8 +74,7 @@ def read_clip(path, res=None, max_len=None) -> np.ndarray:
     Returns:
         np.ndarray: Numpy array of video. shape=(n, h, w, 3)
     """
-
-    cap = cv2.VideoCapture(str(path))
+    cap = cv2.VideoCapture(str(path))#,cv2.CAP_FFMPEG)
     frames = []
     i = 0
     while True:
@@ -212,8 +215,8 @@ def overlay_preds(
     color = np.nan_to_num(color)
     return alpha * color + (1 - alpha) * background
 
-def crop_and_scale(img: np.ndarray, res=(640, 480)) -> np.ndarray:
-    """Scales and cropts an numpy array image to specified resolution.
+def crop_and_scale(img: np.ndarray,res)->np.ndarray: #res=(640, 480)) -> np.ndarray:
+    """Scales and crops an numpy array image to specified resolution.
     Image is first cropped to correct aspect ratio and then scaled using
     bicubic interpolation.
 
@@ -229,13 +232,320 @@ def crop_and_scale(img: np.ndarray, res=(640, 480)) -> np.ndarray:
     r_in = in_res[0] / in_res[1]
     r_out = res[0] / res[1]
 
+<<<<<<< HEAD
+    # if r_in > r_out:
+    #     padding = int(round((in_res[0] - r_out * in_res[1]) / 2))
+    #     img = img[:, padding:-padding]
+    # if r_in < r_out:
+    #     padding = int(round((in_res[1] - in_res[0] / r_out) / 2))
+    #     img = img[padding:-padding]
+=======
     if r_in > r_out:
         padding = int(round((in_res[0] - r_out * in_res[1]) / 2))
         img = img[:, padding:-padding]
     if r_in < r_out:
         padding = int(round((in_res[1] - in_res[0] / r_out) / 2))
         img = img[padding:-padding]
+>>>>>>> 5044dc3 (added changes to fix inference loop)
     
     img = cv2.resize(img, res)
 
     return img
+<<<<<<< HEAD
+
+'''
+DICOM PROCESSING + VIEW CLASSIFICATION 
+'''
+VIEW_MEAN = torch.tensor([29.110628, 28.076836, 29.096405], dtype=torch.float32).reshape(3,1,1,1)
+VIEW_STD = torch.tensor([47.989223, 46.456997, 47.20083], dtype=torch.float32).reshape(3,1,1,1)
+# ALL_VIEWS = ['A2C','A3C','A4C','A5C','Apical_Doppler','Doppler_PLAX','Doppler_PSAX','PLAX','PSAX','SSN','Subcostal']
+ALL_VIEWS = [
+    "A2C",
+    "A2C_LV",
+    "A3C",
+    "A3C_LV",
+    "A4C",
+    "A4C_LA",
+    "A4C_LV",
+    "A4C_MV",
+    "A4C_RV",
+    "A5C",
+    "PLAX",
+    "PLAX_AV_MV",
+    "PLAX_Zoom_out",
+    "PLAX_Proximal_Ascending_Aorta",
+    "PLAX_RV_inflow",
+    "PLAX_RV_outflow",
+    "PLAX_zoomed_AV",
+    "PLAX_zoomed_MV",
+    "PSAX_(level_great_vessels)",
+    "PSAX_(level_great_vessels)_focus_on_PV_and_PA",
+    "PSAX_(level_great_vessels)_focus_on_TV",
+    "PSAX_(level_great_vessels)_zoomed_AV",
+    "PSAX_(level_of_MV)",
+    "PSAX_(level_of_apex)",
+    "PSAX_(level_of_papillary_muscles)",
+    "SSN_aortic_arch",
+    "Subcostal_4C",
+    "Subcostal_Abdominal_Aorta",
+    "Subcostal_IVC",
+    "DOPPLER_PSAX_level_great_vessels_TV",
+    "DOPPLER_PSAX_level_great_vessels_PA",
+    "DOPPLER_PSAX_level_great_vessels_AV",
+    "DOPPLER_PLAX_AV_zoomed",
+    "DOPPLER_PLAX_MV_zoomed",
+    "DOPPLER_PLAX_AV_MV",
+    "DOPPLER_PLAX_Ascending_Aorta",
+    "DOPPLER_PLAX_IVS",
+    "DOPPLER_PLAX_RVOT",
+    "DOPPLER_PLAX_RVIT",
+    "DOPPLER_A4C_MV_TV",
+    "DOPPLER_PSAX_MV",
+    "DOPPLER_A4C_MV",
+    "DOPPLER_A4C_TV",
+    "DOPPLER_A4C_Apex",
+    "DOPPLER_A4C_IVS",
+    "DOPPLER_A4C_IAS",
+    "DOPPLER_A4C_IVS_IAS",
+    "DOPPLER_A2C",
+    "DOPPLER_PSAX_IAS",
+    "DOPPLER_PSAX_IVS",
+    "DOPPLER_A5C",
+    "DOPPLER_A3C",
+    "DOPPLER_A3C_MV",
+    "DOPPLER_A3C_AV",
+    "DOPPLER_SSN_Aortic_Arch",
+    "DOPPLER_A4C_Pulvns",
+    "DOPPLER_SC_4C_IAS",
+    "DOPPLER_SC_4C_IVS",
+    "DOPPLER_SC_IVC",
+    "DOPPLER_SC_aorta",
+    "M_mode_PLAX_Ao_LA",
+    "M_mode_PLAX_MV",
+    "M_mode_PLAX_LV",
+    "M_mode_A4C_RV_TAPSE",
+    "M_mode_SC_IVC",
+    "Doppler_PLAX_RVIT_CW",
+    "Doppler_PSAX_Great_vessel_level_TV_CW",
+    "Doppler_PSAX_Great_vessel_level_PA_PW",
+    "Doppler_PSAX_Great_vessel_level_PA_CW",
+    "Doppler_A4C_MV_PW",
+    "Doppler_A4C_MV_CW",
+    "Doppler_A4C_IVRT_PW",
+    "Doppler_A4C_PV_PW",
+    "Doppler_A4C_TV_CW",
+    "Doppler_A5C_AV_PW",
+    "Doppler_A5C_AV_CW",
+    "Doppler_A3C_AV_PW",
+    "Doppler_A3C_AV_CW",
+    "Doppler_SC_HV/IVC_PW",
+    "Doppler_SC_abdominal_AO_PW",
+    "Doppler_SSN_descending_AO_PW",
+    "Doppler_SSN_descending_AO_CW",
+    "TDI_MV_Lateral e",
+    "TDI_MV_Medial e",
+    "Doppler_A3C_MV_CW",
+    "M-mode_A4C_TV_TAPSE",
+    "M-mode_PSAX_MV level",
+    "M-mode_PSAX_LV_PM level",
+    "Doppler_A2C_MV_CW",
+    "Doppler_A4C_TV_CW_Mayoview",
+    "Doppler_SC_TV_CWQ",
+    "TDI_TV_Lateral S",
+    "M-mode_PSAX_AV",
+    "Doppler_LV_midcavitary_PW",
+    "Doppler_A4C_TV_PW",
+]
+
+def get_ybr_to_rgb_lut(filepath,save_lut=False):
+    global _ybr_to_rgb_lut
+    _ybr_to_rgb_lut = None
+    # return lut if already exists
+    if _ybr_to_rgb_lut is not None:
+        return _ybr_to_rgb_lut
+    # try loading from file
+    lut_path = Path(filepath).parent / 'ybr_to_rgb_lut.npy'
+    if lut_path.is_file():
+        _ybr_to_rgb_lut = np.load(lut_path)
+        return _ybr_to_rgb_lut
+    # else generate lut
+    a = np.arange(2 ** 8, dtype=np.uint8)
+    ybr = np.concatenate(np.broadcast_arrays(a[:, None, None, None], a[None, :, None, None], a[None, None, :, None]), axis=-1)
+    _ybr_to_rgb_lut = pydicom.pixel_data_handlers.util.convert_color_space(ybr, 'YBR_FULL', 'RGB')
+    if save_lut:
+        np.save(lut_path, _ybr_to_rgb_lut)
+    return _ybr_to_rgb_lut
+
+def ybr_to_rgb(filepath,pixels: np.array):
+    lut = get_ybr_to_rgb_lut(filepath)
+    return lut[pixels[..., 0], pixels[..., 1], pixels[..., 2]]
+
+def change_doppler_color(dcm_path):
+    ds = pydicom.dcmread(dcm_path)
+    pixels = ds.pixel_array
+    if ds.PhotometricInterpretation == 'MONOCHROME2':
+        input_image = np.stack((pixels,)*3,axis=-1)
+    elif ds.PhotometricInterpretation in ['YBR_FULL',"YBR_FULL_422"]:
+        input_image = ybr_to_rgb(dcm_path,pixels)
+    elif ds.PhotometricInterpretation == "RGB": 
+        pass
+    else:
+        print("Unsupported Photometric Interpretation: ",ds.PhotometricInterpretation)
+    return input_image 
+
+def mask_outside_ultrasound(original_pixels: np.array) -> np.array:
+    """
+    Masks all pixels outside the ultrasound region in a video.
+
+    Args:
+    vid (np.ndarray): A numpy array representing the video frames. FxHxWxC
+
+    Returns:
+    np.ndarray: A numpy array with pixels outside the ultrasound region masked.
+    """
+    try:
+        testarray=np.copy(original_pixels)
+        vid=np.copy(original_pixels)
+        ##################### CREATE MASK #####################
+        # Sum all the frames
+        frame_sum = testarray[0].astype(np.float32)  # Start off the frameSum with the first frame
+        frame_sum = cv2.cvtColor(frame_sum, cv2.COLOR_YUV2RGB)
+        frame_sum = cv2.cvtColor(frame_sum, cv2.COLOR_RGB2GRAY)
+        frame_sum = np.where(frame_sum > 0, 1, 0) # make all non-zero values 1
+        frames = testarray.shape[0]
+        for i in range(frames): # Go through every frame
+            frame = testarray[i, :, :, :].astype(np.uint8)
+            frame = cv2.cvtColor(frame, cv2.COLOR_YUV2RGB)
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+            frame = np.where(frame>0,1,0) # make all non-zero values 1
+            frame_sum = np.add(frame_sum,frame)
+
+        # Erode to get rid of the EKG tracing
+        kernel = np.ones((3,3), np.uint8)
+        frame_sum = cv2.erode(np.uint8(frame_sum), kernel, iterations=10)
+
+        # Make binary
+        frame_sum = np.where(frame_sum > 0, 1, 0)
+
+        # Make the difference frame fr difference between 1st and last frame
+        # This gets rid of static elements
+        frame0 = testarray[0].astype(np.uint8)
+        frame0 = cv2.cvtColor(frame0, cv2.COLOR_YUV2RGB)
+        frame0 = cv2.cvtColor(frame0, cv2.COLOR_RGB2GRAY)
+        frame_last = testarray[testarray.shape[0] - 1].astype(np.uint8)
+        frame_last = cv2.cvtColor(frame_last, cv2.COLOR_YUV2RGB)
+        frame_last = cv2.cvtColor(frame_last, cv2.COLOR_RGB2GRAY)
+        frame_diff = abs(np.subtract(frame0, frame_last))
+        frame_diff = np.where(frame_diff > 0, 1, 0)
+
+        # Ensure the upper left hand corner 20x20 box all 0s.
+        # There is a weird dot that appears here some frames on Stanford echoes
+        frame_diff[0:20, 0:20] = np.zeros([20, 20])
+
+        # Take the overlap of the sum frame and the difference frame
+        frame_overlap = np.add(frame_sum,frame_diff)
+        frame_overlap = np.where(frame_overlap > 1, 1, 0)
+
+        # Dilate
+        kernel = np.ones((3,3), np.uint8)
+        frame_overlap = cv2.dilate(np.uint8(frame_overlap), kernel, iterations=10).astype(np.uint8)
+
+        # Fill everything that's outside the mask sector with some other number like 100
+        cv2.floodFill(frame_overlap, None, (0,0), 100)
+        # make all non-100 values 255. The rest are 0
+        frame_overlap = np.where(frame_overlap!=100,255,0).astype(np.uint8)
+        contours, hierarchy = cv2.findContours(frame_overlap, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # contours[0] has shape (445, 1, 2). 445 coordinates. each coord is 1 row, 2 numbers
+        # Find the convex hull
+        for i in range(len(contours)):
+            hull = cv2.convexHull(contours[i])
+            cv2.drawContours(frame_overlap, [hull], -1, (255, 0, 0), 3)
+        frame_overlap = np.where(frame_overlap > 0, 1, 0).astype(np.uint8) #make all non-0 values 1
+        # Fill everything that's outside hull with some other number like 100
+        cv2.floodFill(frame_overlap, None, (0,0), 100)
+        # make all non-100 values 255. The rest are 0
+        frame_overlap = np.array(np.where(frame_overlap != 100, 255, 0),dtype=bool)
+        ################## Create your .avi file and apply mask ##################
+        # Store the dimension values
+
+        # Apply the mask to every frame and channel (changing in place)
+        for i in range(len(vid)):
+            frame = vid[i, :, :, :].astype('uint8')
+            frame = cv2.cvtColor(frame, cv2.COLOR_YUV2BGR)
+            frame = cv2.bitwise_and(frame, frame, mask = frame_overlap.astype(np.uint8))
+            vid[i,:,:,:]=frame
+        return vid
+    except Exception as e:
+        print("Error masking returned as is.")
+        return vid
+
+def make_view_input(dcm_path,n=224):
+    pixels = change_doppler_color(dcm_path)
+    pixels = mask_outside_ultrasound(pixels)
+    frames_to_take = 32
+    frame_stride = 2
+    vid_tensor = torch.as_tensor(pixels,dtype=torch.float) # FHWC
+    if len(vid_tensor.size())<4:
+        return
+    vid_tensor = vid_tensor.permute(0,-1,1,2) #FCHW
+    resizer = torchvision.transforms.Resize((n,n))
+    x = resizer(vid_tensor).permute(1,0,2,3)
+    x.sub_(VIEW_MEAN).div_(VIEW_STD)
+    if x.shape[1] < frames_to_take:
+        padding = torch.zeros((3,frames_to_take - x.shape[1],n,n),dtype=torch.float)
+        x = torch.cat((x,padding),dim=1)
+    return x[:,0:frames_to_take:frame_stride,:,:]
+
+def load_view_classifier(weights_path='/workspace/vic/lvh/weights/epoch=21-step=17842.ckpt'):
+    device = torch.device('cuda') if torch.cuda.is_available()==True else 'cpu'
+    checkpoint = torch.load(weights_path,map_location=device)
+    state_dict = {key[6:]:value for key,value in checkpoint['state_dict'].items()}
+    view_classifier = torchvision.models.convnext_base()
+    view_classifier.classifier[-1] = torch.nn.Linear(
+        view_classifier.classifier[-1].in_features,len(ALL_VIEWS)
+    )
+    view_classifier.load_state_dict(state_dict)
+    view_classifier.to(device)
+    view_classifier.eval()
+    for param in view_classifier.parameters():
+        param.requires_grad = False
+    return view_classifier
+
+def get_views(input,view_classifier,filename,batch_size=32):
+    device = torch.device('cuda') if torch.cuda.is_available()==True else 'cpu'
+    labels = torch.zeros(len(input))
+    ds = torch.utils.data.TensorDataset(input,labels)
+    batch_size = batch_size
+    dl = torch.utils.data.DataLoader(ds,batch_size=batch_size,num_workers=0,shuffle=False)
+    pred_views = [""]*len(dl)
+    with torch.no_grad():
+        for idx,(x,views) in tqdm.tqdm(enumerate(dl)):
+            x = x.to(device)
+            out = view_classifier(x)
+            out = torch.argmax(out,dim=1)
+            preds = [ALL_VIEWS[o] for o in out]
+            start = idx*batch_size
+            end = min((idx+1)*batch_size,len(ds))
+            pred_views[start:end] = preds
+    predicted_view = {key:val for (key,val) in zip(filename,pred_views)}
+    predicted_view = pd.DataFrame.from_dict({
+        'filename':list(predicted_view.keys()),
+        'view':list(predicted_view.values())
+    })
+    predicted_view.to_csv('predicted_view.csv',index=None)
+    return predicted_view
+
+def get_dicoms(parent,new_dir):
+    new_path = Path(new_dir)/'all_dicoms'
+    if not new_path.exists():
+        os.mkdir(new_path)
+    parent = Path(parent)
+    for item in parent.iterdir(): 
+        if item.is_dir():
+            id = item.name
+            dicom_dir = Path(item/'dicom')
+            for dcm in dicom_dir.iterdir():
+                dst_path = new_path/f'{id}_{dcm.name}'
+                shutil.copy(src=dcm,dst=dst_path)
+=======
+>>>>>>> 5044dc3 (added changes to fix inference loop)
